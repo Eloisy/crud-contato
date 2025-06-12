@@ -1,0 +1,51 @@
+services:
+
+  # SERVIDOR PHP/APACHE
+  php:
+    build:
+      context: ./ # CAMINHO ATÉ ONDE ESTÁ O DOCKERFILE (a raiz do projeto)
+      dockerfile: Dockerfile # NOME DO DOCKERFILE A SER USADO PARA MONTAR A IMAGEM DO PHP/Apache
+    container_name: php_apache # NOME DO CONTAINER PARA FACILITAR IDENTIFICAÇÃO
+    restart: always # REINICIA AUTOMATICAMENTE SE O CONTAINER CAIR
+    volumes:
+      - ./crud:/var/www/html:cached  
+    ports:
+      - "80:80" # EXPÕE A PORTA 80 (APACHE) DO CONTAINER PARA A PORTA 80 DO HOST (seu PC)
+    networks:
+      - app-network # ADICIONA O CONTAINER NA REDE PERSONALIZADA
+
+  # SERVIDOR MYSQL
+  mysql:
+    image: mysql:5.7 # USANDO VERSÃO 5.7 (MAIS ESTÁVEL EM MUITOS CASOS QUE A 8.0)
+    container_name: mysql_container # NOME DO CONTAINER DO MYSQL
+    restart: always # REINICIA AUTOMATICAMENTE SE CAIR
+    volumes:
+      - ./mysql:/var/lib/mysql # PERSISTÊNCIA DOS DADOS DO MYSQL NA PASTA LOCAL ./mysql
+      - ./crud:/docker-entrypoint-initdb.d # JOGA AS TABELAS PARA DENTRO DO MYSQL
+    ports:
+      - "3306:3306" # EXPÕE A PORTA 3306 DO MYSQL PARA O HOST (para conexões externas, se precisar)
+    environment:
+      MYSQL_ROOT_PASSWORD: postdba # SENHA DO ROOT DO MYSQL (muda essa quando for produção, hein)
+      MYSQL_DATABASE: crud # BANCO DE DADOS QUE SERÁ CRIADO AUTOMATICAMENTE NA PRIMEIRA INICIALIZAÇÃO
+    networks:
+      - app-network # MESMA REDE PARA PODER SE COMUNICAR COM OS OUTROS CONTAINERS
+
+  # SERVIDOR PHPMYADMIN
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest # IMAGEM DO PHPMYADMIN (INTERFACE WEB PARA GERENCIAR O MYSQL)
+    container_name: phpmyadmin_container # NOME DO CONTAINER DO PHPMYADMIN
+    restart: always # REINICIA AUTOMATICAMENTE SE O CONTAINER CAIR
+    depends_on:
+      - mysql # GARANTE QUE O PHPMYADMIN SÓ SOBE APÓS O MYSQL ESTAR PRONTO
+    environment:
+      PMA_HOST: mysql # INDICA O HOST DO MYSQL PARA O PHPMYADMIN SE CONECTAR (NOME DO SERVIÇO)
+      MYSQL_ROOT_PASSWORD: postdba # SENHA DO ROOT DO MYSQL (MESMA CONFIGURADA NO CONTAINER MYSQL)
+    ports:
+      - "8080:80" # EXPÕE A PORTA 80 DO PHPMYADMIN PARA A PORTA 8080 DO HOST (acesso via http://localhost:8080)
+    networks:
+      - app-network # MESMA REDE PARA PERMITIR COMUNICAÇÃO COM O MYSQL
+
+# REDE PERSONALIZADA PARA OS CONTAINERS
+networks:
+  app-network:
+    driver: bridge # TIPO DE REDE PADRÃO PARA COMUNICAÇÃO ENTRE CONTAINERS
